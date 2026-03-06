@@ -1,0 +1,173 @@
+# LoomQuery Architecture & Naming Review Progress
+
+## Review Date: 2026-03-06
+
+---
+
+## AR-005: Type/Interface Naming [PASS]
+
+### Findings:
+- No I-prefixed interfaces found anywhere in codebase
+- All union types clearly named:
+  - DocumentStatus (not DocStatus)
+  - ToastSeverity (not Severity)
+  - LogLevel (not Level)
+  - ErrorCode (not ErrCode)
+- All generic type parameters have clear names where used
+- Zod schema names match inferred type names consistently:
+  - DocumentSchema -> Document
+  - CreateDocumentSchema -> CreateDocument
+  - ApiKeySchema -> ApiKey
+  - ActivityLogSchema -> ActivityLog
+  - FeedbackSchema -> Feedback
+  - SettingSchema -> Setting
+  - DocumentStatusSchema -> DocumentStatus
+- Error types properly structured:
+  - AppError class with ErrorCode enum
+  - Clear error domain naming (PARSE_FAILED, SEARCH_FAILED, LLM_TIMEOUT, etc.)
+- No 'any' types found outside justified boundaries:
+  - 2 justified uses in src/lib/queue.ts (BullMQ generic defaults) with eslint-disable comments
+
+### Files Reviewed:
+- src/lib/db/schemas.ts - All schemas and types correct
+- src/store/index.ts - SidebarState, ThemeState (no I-prefix)
+- src/lib/errors.ts - AppError, ErrorCode properly structured
+- src/components/**/*.tsx - All Props interfaces properly named (EmptyStateProps, ErrorDisplayProps, etc.)
+- src/lib/logger.ts - LogLevel, LogEntry types clear
+- src/components/feedback/ToastProvider.tsx - ToastSeverity, Toast, ToastStore clear
+
+---
+
+## AR-006: API & Database Layer Naming [PASS]
+
+### Findings:
+- Repository files correctly named {entity}.repo.ts:
+  - document.repo.ts
+  - api-key.repo.ts
+  - activity.repo.ts
+  - feedback.repo.ts
+  - settings.repo.ts
+- Database column names are snake_case (created_at, entity_type, file_path, etc.)
+- Query/mutation functions follow create/get/list/update/delete pattern:
+  - createDocument, getDocument, listDocuments, updateDocumentStatus, deleteDocument
+  - createApiKey, getApiKey, listApiKeys, revokeApiKey, updateApiKeyLastUsed
+  - logActivity, listActivities
+  - createFeedback, listFeedback
+  - getSetting, setSetting, getAllSettings
+- Singleton getters follow get{Service} pattern:
+  - getDb, getRedisClient, getChromaClient, getMastraClient
+- Singleton cleanup follows close{Service} pattern:
+  - closeDb, closeRedis, closeChroma
+
+### Files Reviewed:
+- src/lib/db/repositories/*.repo.ts - All naming correct
+- src/lib/mastra.ts - MastraClient interface with clear method names
+- src/lib/queue.ts - createQueue, createWorker factory functions
+
+---
+
+## AR-007: Store & State Management Naming [PASS]
+
+### Findings:
+- Store hooks correctly named use{Domain}Store:
+  - useSidebarStore (src/store/index.ts)
+  - useThemeStore (src/store/index.ts)
+  - useToastStore (src/components/feedback/ToastProvider.tsx)
+- State interfaces clearly named:
+  - SidebarState: isCollapsed, toggleCollapsed, setCollapsed
+  - ThemeState: isDark, toggleTheme
+  - ToastStore: toasts, show, dismiss
+- Helper hooks clearly named:
+  - useToast (facade for useToastStore.show)
+- Persistence keys follow loomquery-{domain} pattern:
+  - loomquery-sidebar
+  - loomquery-theme
+
+### Files Reviewed:
+- src/store/index.ts - All store names and methods correct
+- src/components/feedback/ToastProvider.tsx - Toast store correct
+
+---
+
+## AR-008: File Organization & Co-location [PASS]
+
+### Findings:
+- Tests co-located with source in __tests__ directories:
+  - src/components/__tests__/ (5 test files for 5 components)
+  - src/components/layout/__tests__/ (1 test file for Sidebar)
+  - src/lib/__tests__/ (2 test files for redis, chroma)
+  - src/lib/db/__tests__/ (4 test files for repos and singletons)
+  - tests/e2e/ (3 spec files for E2E)
+- No circular imports detected:
+  - Import graph is acyclic: schemas -> repositories -> activity-logger
+  - Components import from lib/ (one direction)
+  - Store is only imported by layout components
+- All cross-directory imports use @/ alias consistently
+- Relative imports (./  ../) only used within same module:
+  - Repositories import from ../client and ../schemas
+  - queue.ts imports from ./redis-config
+  - Tests import from ../ComponentName
+
+### Files Reviewed:
+- All import statements across src/ directory
+- Full dependency graph verified
+
+---
+
+## AR-009: Test File Naming & Organization [PASS]
+
+### Findings:
+- Unit test files follow {component}.test.tsx pattern:
+  - empty-state.test.tsx
+  - error-display.test.tsx
+  - error-boundary.test.tsx
+  - progress-bar.test.tsx
+  - toast-provider.test.tsx
+  - sidebar.test.tsx
+  - redis.test.ts
+  - chroma.test.ts
+  - client.test.ts
+  - singleton.test.ts
+  - document.repo.test.ts
+  - activity.repo.test.ts
+  - feedback.repo.test.ts
+- E2E test files follow {feature}.spec.ts pattern:
+  - error-handling.spec.ts
+  - sidebar-hydration.spec.ts
+  - theme-persistence.spec.ts
+- All test suites use describe() with clear module names
+- Test cases use clear it('action expected result') pattern
+- Test data factories follow make{Entity}() pattern (makeDoc, makeEntry)
+
+### Files Reviewed:
+- src/components/__tests__/*.test.tsx
+- src/components/layout/__tests__/*.test.tsx
+- src/lib/__tests__/*.test.ts
+- src/lib/db/__tests__/*.test.ts
+- tests/e2e/*.spec.ts
+
+---
+
+## AR-010: Documentation & Cleanup [DONE]
+
+### Deliverables:
+- [x] ARCHITECTURE.md created (5 sections: Overview, Directory Structure, Key Patterns, Testing Strategy, Deployment)
+- [x] NAMING.md created (9 sections with tables and examples)
+- [x] progress.txt updated with all review findings
+
+### Verification:
+- pnpm typecheck: 0 errors
+- pnpm test: 83+ tests passing
+- pnpm build: success
+- No TODO/FIXME/HACK/console.log in production source code
+- No remaining 'any' types (except 2 justified in queue.ts)
+- All imports use @/ alias consistently
+- No circular imports
+- No I-prefixed interfaces
+
+---
+
+## Summary
+
+All 6 architecture review stories (AR-005 through AR-010) have been completed.
+The codebase fully adheres to all naming and organizational conventions.
