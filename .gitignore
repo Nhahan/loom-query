@@ -29,6 +29,7 @@ pnpm-debug.log*
 coverage/
 playwright-report/
 test-results/
+tests/fixtures/*-*.txt
 
 # IDE
 .vscode/
