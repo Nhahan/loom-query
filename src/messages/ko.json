@@ -1,0 +1,41 @@
+{
+  "nav": {
+    "dashboard": "대시보드",
+    "library": "자료실",
+    "uploads": "자료 업로드",
+    "chat": "AI 질문하기",
+    "apiPortal": "API & 연동",
+    "activity": "활동 기록",
+    "settings": "설정"
+  },
+  "common": {
+    "appName": "LoomQuery",
+    "collapse": "사이드바 접기",
+    "expand": "사이드바 펼치기",
+    "darkMode": "다크 모드",
+    "lightMode": "라이트 모드",
+    "close": "닫기",
+    "retry": "다시 시도",
+    "loading": "로딩 중..."
+  },
+  "error": {
+    "title": "문제가 발생했습니다",
+    "description": "예상치 못한 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+    "code": "오류 코드",
+    "recovery": "해결 방법",
+    "retry": "다시 시도"
+  },
+  "emptyState": {
+    "defaultTitle": "항목이 없습니다",
+    "defaultDescription": "아직 표시할 내용이 없습니다."
+  },
+  "progress": {
+    "label": "처리 중",
+    "complete": "완료"
+  },
+  "toast": {
+    "info": "알림",
+    "warning": "경고",
+    "error": "오류"
+  }
+}
