@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { create } from 'zustand';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -16,12 +17,14 @@ interface UploadState {
   isDragOver: boolean;
   uploadedDocumentId: string | null;
   validationError: string | null;
+  uploadComplete: boolean;
   setFile: (file: File | null) => void;
   setUploading: (uploading: boolean) => void;
   setProgress: (progress: number) => void;
   setIsDragOver: (isDragOver: boolean) => void;
   setUploadedDocumentId: (id: string | null) => void;
   setValidationError: (error: string | null) => void;
+  setUploadComplete: (complete: boolean) => void;
   reset: () => void;
 }
 
@@ -32,13 +35,23 @@ export const useUploadStore = create<UploadState>((set) => ({
   isDragOver: false,
   uploadedDocumentId: null,
   validationError: null,
+  uploadComplete: false,
   setFile: (file) => set({ file }),
   setUploading: (uploading) => set({ uploading }),
   setProgress: (progress) => set({ progress }),
   setIsDragOver: (isDragOver) => set({ isDragOver }),
   setUploadedDocumentId: (uploadedDocumentId) => set({ uploadedDocumentId }),
   setValidationError: (validationError) => set({ validationError }),
-  reset: () => set({ file: null, uploading: false, progress: 0, isDragOver: false, uploadedDocumentId: null, validationError: null }),
+  setUploadComplete: (uploadComplete) => set({ uploadComplete }),
+  reset: () => set({
+    file: null,
+    uploading: false,
+    progress: 0,
+    isDragOver: false,
+    uploadedDocumentId: null,
+    validationError: null,
+    uploadComplete: false,
+  }),
 }));
 
 // ---- Helpers ----
@@ -54,10 +67,10 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 export function validateFile(file: File): string | null {
   if (!ALLOWED_FILE_TYPES.has(file.type)) {
-    return 'Only PDF and TXT files are allowed';
+    return 'PDF와 TXT 파일만 업로드 가능합니다';
   }
   if (file.size > MAX_FILE_SIZE) {
-    return 'File size exceeds 50 MB limit';
+    return '파일 크기가 50 MB를 초과합니다';
   }
   return null;
 }
@@ -77,14 +90,26 @@ export function DocumentUpload() {
   const isDragOver = useUploadStore((s) => s.isDragOver);
   const uploadedDocumentId = useUploadStore((s) => s.uploadedDocumentId);
   const validationError = useUploadStore((s) => s.validationError);
+  const uploadComplete = useUploadStore((s) => s.uploadComplete);
   const setFile = useUploadStore((s) => s.setFile);
   const setUploading = useUploadStore((s) => s.setUploading);
   const setProgress = useUploadStore((s) => s.setProgress);
   const setIsDragOver = useUploadStore((s) => s.setIsDragOver);
   const setUploadedDocumentId = useUploadStore((s) => s.setUploadedDocumentId);
   const setValidationError = useUploadStore((s) => s.setValidationError);
+  const setUploadComplete = useUploadStore((s) => s.setUploadComplete);
   const reset = useUploadStore((s) => s.reset);
   const { show } = useToast();
+
+  // Auto-reset after 3 seconds
+  useEffect(() => {
+    if (uploadComplete) {
+      const timer = setTimeout(() => {
+        reset();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [uploadComplete, reset]);
 
   function handleButtonClick() {
     const input = document.getElementById('upload-file-input') as HTMLInputElement | null;
@@ -94,6 +119,7 @@ export function DocumentUpload() {
   async function uploadFile(selectedFile: File) {
     setUploading(true);
     setProgress(0);
+    setUploadComplete(false);
 
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -115,10 +141,10 @@ export function DocumentUpload() {
               const responseData = JSON.parse(xhr.responseText) as UploadResponse;
               resolve(responseData);
             } catch {
-              reject(new Error('Invalid response format'));
+              reject(new Error('응답 형식이 올바르지 않습니다'));
             }
           } else {
-            let message = 'Upload failed';
+            let message = '업로드에 실패했습니다';
             try {
               const body = JSON.parse(xhr.responseText) as { error?: string };
               if (body.error) message = body.error;
@@ -130,21 +156,24 @@ export function DocumentUpload() {
         });
 
         xhr.addEventListener('error', () => {
-          reject(new Error('Network error'));
+          reject(new Error('네트워크 오류가 발생했습니다'));
         });
 
         xhr.open('POST', '/api/documents/upload');
         xhr.send(formData);
       });
 
+      // Success: show completion state
       setProgress(100);
+      setUploading(false);
       setUploadedDocumentId(data.documentId);
-      show(`Document uploaded successfully (ID: ${data.documentId})`, 'info');
-      reset();
+      setUploadComplete(true);
+      show(`문서 업로드 완료! (ID: ${data.documentId})`, 'info');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Upload failed';
+      const message = err instanceof Error ? err.message : '업로드에 실패했습니다';
       show(message, 'error');
       setUploading(false);
+      setProgress(0);
     }
   }
 
@@ -184,6 +213,18 @@ export function DocumentUpload() {
     e.target.value = '';
   }
 
+  // Determine button state
+  let buttonText = '파일 선택';
+  let buttonDisabled = uploading || uploadComplete;
+
+  if (uploading) {
+    buttonText = `업로드 중... ${progress}%`;
+  } else if (uploadComplete) {
+    buttonText = '업로드 완료 ✓';
+  } else if (file) {
+    buttonText = '업로드 시작';
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -203,12 +244,13 @@ export function DocumentUpload() {
             uploading ? 'opacity-60 pointer-events-none' : 'cursor-pointer',
           ].join(' ')}
         >
-          {uploadedDocumentId ? (
+          {uploadComplete && uploadedDocumentId ? (
             <div className="w-full space-y-2 text-green-600">
-              <p className="text-sm font-medium">업로드 완료! ✓</p>
-              <p className="text-xs break-words" data-testid="document-id">
-                Document ID: {uploadedDocumentId}
+              <p className="text-sm font-medium">✓ 업로드 완료!</p>
+              <p className="text-xs break-words font-mono text-green-700" data-testid="document-id">
+                ID: {uploadedDocumentId}
               </p>
+              <p className="text-xs text-gray-500 mt-2">3초 후 자동으로 초기화됩니다</p>
             </div>
           ) : file ? (
             <div className="w-full space-y-3">
@@ -244,17 +286,25 @@ export function DocumentUpload() {
           className="hidden"
           disabled={uploading}
           onChange={handleInputChange}
+          accept=".pdf,.txt"
         />
 
         <div className="mt-4">
           <Button
             onClick={handleButtonClick}
-            disabled={uploading}
+            disabled={buttonDisabled}
             className="w-full"
+            data-testid="upload-button"
           >
-            {uploading ? `업로드 중... ${progress}%` : '파일 선택'}
+            {buttonText}
           </Button>
         </div>
+
+        {validationError && (
+          <p className="mt-2 text-sm text-red-600" data-testid="error-message">
+            ⚠️ {validationError}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

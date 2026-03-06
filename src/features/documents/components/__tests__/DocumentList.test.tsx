@@ -74,25 +74,51 @@ describe("DocumentList", () => {
 
     expect(screen.getByText("notes.txt")).toBeInTheDocument();
     expect(screen.getByText("data.csv")).toBeInTheDocument();
-    expect(screen.getByText("completed")).toBeInTheDocument();
-    expect(screen.getByText("pending")).toBeInTheDocument();
-    expect(screen.getByText("error")).toBeInTheDocument();
+    // Status labels should be in Korean (regression test)
+    expect(screen.getByText("완료")).toBeInTheDocument();
+    expect(screen.getByText("처리중")).toBeInTheDocument();
+    expect(screen.getByText("실패")).toBeInTheDocument();
     expect(screen.getByText("2.5 MB")).toBeInTheDocument();
     expect(screen.getByText("1.0 KB")).toBeInTheDocument();
     expect(screen.getByText("512 B")).toBeInTheDocument();
-    expect(screen.getByText("2024-03-06")).toBeInTheDocument();
-    expect(screen.getByText("2024-03-05")).toBeInTheDocument();
+    // Date format should be in Ko-KR locale (regression test)
+    expect(screen.getByText("2024. 3. 6.")).toBeInTheDocument();
+    expect(screen.getByText("2024. 3. 5.")).toBeInTheDocument();
   });
 
-  it("shows empty state when no documents", async () => {
+  it("shows empty state when no documents (regression test - Korean localization)", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(ok([]));
 
     await act(async () => { render(<DocumentList />); });
 
     await waitFor(() =>
-      expect(screen.getByText(/no documents uploaded yet/i)).toBeInTheDocument()
+      expect(screen.getByText(/아직 업로드된 문서가 없습니다/)).toBeInTheDocument()
     );
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("displays Korean title '문서 목록' (regression test)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(ok(sampleDocuments));
+
+    await act(async () => { render(<DocumentList />); });
+
+    await waitFor(() => expect(screen.getByText("report.pdf")).toBeInTheDocument());
+
+    expect(screen.getByText("문서 목록")).toBeInTheDocument();
+  });
+
+  it("displays Korean table headers (regression test)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(ok(sampleDocuments));
+
+    await act(async () => { render(<DocumentList />); });
+
+    await waitFor(() => expect(screen.getByText("report.pdf")).toBeInTheDocument());
+
+    // Headers should be in Korean
+    expect(screen.getByText("파일명")).toBeInTheDocument();
+    expect(screen.getByText("업로드 날짜")).toBeInTheDocument();
+    expect(screen.getByText("상태")).toBeInTheDocument();
+    expect(screen.getByText("크기")).toBeInTheDocument();
   });
 
   it("fetches documents from GET /api/documents on mount", async () => {

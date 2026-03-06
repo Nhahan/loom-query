@@ -25,7 +25,7 @@ function formatFileSize(bytes: number): string {
 }
 
 function formatDate(isoString: string): string {
-  return new Date(isoString).toISOString().slice(0, 10);
+  return new Date(isoString).toLocaleDateString('ko-KR');
 }
 
 function statusVariant(
@@ -37,9 +37,9 @@ function statusVariant(
 }
 
 function statusLabel(status: DocumentItem["status"]): string {
-  if (status === "done") return "completed";
-  if (status === "failed") return "error";
-  return "pending";
+  if (status === "done") return "완료";
+  if (status === "failed") return "실패";
+  return "처리중";
 }
 
 export default function DocumentList() {
@@ -129,7 +129,7 @@ export default function DocumentList() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Documents</CardTitle>
+        <CardTitle>문서 목록</CardTitle>
       </CardHeader>
       <CardContent>
         {deleteError && (
@@ -139,16 +139,16 @@ export default function DocumentList() {
         )}
         {documents.length === 0 ? (
           <p className="py-8 text-center text-muted-foreground">
-            No documents uploaded yet
+            아직 업로드된 문서가 없습니다
           </p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground">
-                <th className="pb-2 pr-4 font-medium">File name</th>
-                <th className="pb-2 pr-4 font-medium">Upload date</th>
-                <th className="pb-2 pr-4 font-medium">Status</th>
-                <th className="pb-2 pr-4 font-medium">Size</th>
+                <th className="pb-2 pr-4 font-medium">파일명</th>
+                <th className="pb-2 pr-4 font-medium">업로드 날짜</th>
+                <th className="pb-2 pr-4 font-medium">상태</th>
+                <th className="pb-2 pr-4 font-medium">크기</th>
                 <th className="pb-2 font-medium" />
               </tr>
             </thead>

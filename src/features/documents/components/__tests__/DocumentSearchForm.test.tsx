@@ -67,7 +67,7 @@ describe('DocumentSearchForm', () => {
     expect(button.disabled).toBe(true);
   });
 
-  it('rejects query shorter than 2 characters', async () => {
+  it('rejects query shorter than 2 characters with Korean message (regression test)', async () => {
     render(<DocumentSearchForm />);
     const input = screen.getByTestId('search-input') as HTMLInputElement;
 
@@ -77,9 +77,36 @@ describe('DocumentSearchForm', () => {
     });
 
     expect(toastMocks.show).toHaveBeenCalledWith(
-      'Search query must be at least 2 characters',
+      '검색어는 최소 2자 이상이어야 합니다',
       'error'
     );
+  });
+
+  it('shows Korean message when no documents found (regression test)', async () => {
+    mockFetchResponse = {
+      ok: true,
+      json: () => Promise.resolve({
+        results: [],
+        mode: 'hybrid' as const,
+        response_time: 50,
+      }),
+    };
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(mockFetchResponse)));
+
+    render(<DocumentSearchForm />);
+    const input = screen.getByTestId('search-input') as HTMLInputElement;
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'test query' } });
+      fireEvent.click(screen.getByTestId('search-button'));
+    });
+
+    await waitFor(() => {
+      expect(toastMocks.show).toHaveBeenCalledWith(
+        '검색어와 일치하는 문서를 찾지 못했습니다',
+        'info'
+      );
+    });
   });
 
   it('displays search results with scores', async () => {

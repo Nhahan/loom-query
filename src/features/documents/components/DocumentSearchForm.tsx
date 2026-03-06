@@ -53,10 +53,10 @@ export function DocumentSearchForm({
   // Validate search query
   function validateQuery(query: string): string | null {
     if (!query || query.trim().length === 0) {
-      return 'Search query cannot be empty';
+      return '검색어를 입력해주세요';
     }
     if (query.trim().length < 2) {
-      return 'Search query must be at least 2 characters';
+      return '검색어는 최소 2자 이상이어야 합니다';
     }
     return null;
   }
@@ -109,7 +109,7 @@ export function DocumentSearchForm({
       }
 
       if (data.results.length === 0) {
-        show('No documents found matching your query', 'info');
+        show('검색어와 일치하는 문서를 찾지 못했습니다', 'info');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Search failed';
