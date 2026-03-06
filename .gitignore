@@ -39,3 +39,12 @@ test-results/
 
 # Docker
 docker-compose.override.yml
+
+# Database
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# TypeScript build artifacts
+tsconfig.tsbuildinfo
