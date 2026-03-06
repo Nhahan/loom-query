@@ -1,0 +1,6 @@
+The quick brown fox jumps over the lazy dog. This is a test document for search functionality.
+LoomQuery is an AI-powered document query platform that enables semantic search over uploaded documents.
+The platform uses ChromaDB for vector storage and Mastra for embedding generation.
+Documents are processed and chunked for efficient retrieval based on semantic similarity.
+This sample document contains unique phrases such as: aurora borealis phenomenon and quantum entanglement theory.
+These distinctive terms help verify that search results return content from this specific document.
