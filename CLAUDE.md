@@ -56,3 +56,22 @@
 - `pnpm test:e2e` - run Playwright E2E tests
 - `pnpm lint` - ESLint
 - `pnpm typecheck` - tsc --noEmit
+
+## ⚠️ NO DEPLOYMENT
+
+**LoomQuery is a LOCAL-ONLY application. There is NO deployment, NO production environment, and NO live service.**
+
+This project runs entirely on localhost. Do NOT:
+- Add environment variables for cloud services
+- Create deployment scripts or CI/CD pipelines
+- Suggest production configurations
+- Mention Vercel, AWS, Docker Hub, or any cloud platforms
+- Ask about database migrations or scaling strategies
+
+The application uses:
+- Local Next.js dev server (`pnpm dev`)
+- Embedded ChromaDB (local SQLite-based vector store)
+- Local Redis instance (via docker-compose)
+- Local Ollama for embeddings (localhost:11434)
+
+All infrastructure is self-contained and runs on the developer's machine only.
