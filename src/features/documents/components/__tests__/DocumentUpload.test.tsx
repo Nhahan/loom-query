@@ -212,7 +212,7 @@ describe('DocumentUpload', () => {
       expect(toastMocks.show).toHaveBeenCalled();
       const calls = toastMocks.show.mock.calls;
       const successCall = calls.find((call: unknown[]) =>
-        typeof call[0] === 'string' && call[0].startsWith('Document uploaded successfully')
+        typeof call[0] === 'string' && call[0].startsWith('문서 업로드 완료!')
       );
       expect(successCall).toBeDefined();
     });
@@ -248,7 +248,7 @@ describe('DocumentUpload', () => {
     await act(async () => { mockXhr._triggerError(); });
 
     await waitFor(() => {
-      expect(toastMocks.show).toHaveBeenCalledWith('Network error', 'error');
+      expect(toastMocks.show).toHaveBeenCalledWith('네트워크 오류가 발생했습니다', 'error');
     });
   });
 
