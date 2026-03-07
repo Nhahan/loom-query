@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: loomquery-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - loomquery-network
+
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: loomquery-chroma
+    ports:
+      - "8000:8000"
+    environment:
+      - ANONYMIZED_TELEMETRY=False
+      - CHROMA_SERVER_CORS_ALLOW_ORIGINS=["http://localhost:3000", "http://localhost:3001"]
+    volumes:
+      - chroma-data:/chroma/chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - loomquery-network
+
+volumes:
+  redis-data:
+  chroma-data:
+
+networks:
+  loomquery-network:
+    driver: bridge
