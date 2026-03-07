@@ -15,10 +15,19 @@ export type EmbedDocumentResult =
   | { success: false; error: string };
 
 const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS_LARGE = 5; // More retries for large files
 const BASE_DELAY_MS = 1000;
+const BASE_DELAY_LARGE_MS = 2000; // Longer initial delay for large files
+const LARGE_FILE_SIZE_BYTES = 500 * 1024; // 500 KB
+const VERY_LARGE_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB - use even longer delays
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isLargeFile(content: string): boolean {
+  const byteLength = Buffer.byteLength(content || '', 'utf8');
+  return byteLength > LARGE_FILE_SIZE_BYTES;
 }
 
 async function attemptEmbedding(documentId: string, content: string): Promise<number> {
@@ -67,7 +76,19 @@ export async function embedDocument(
 
   let lastError: string = 'Unknown embedding error';
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  // Use more retries for large files
+  const contentSize = (doc.content || '').length;
+  const isLarge = isLargeFile(doc.content || '');
+  const maxAttempts = isLarge ? MAX_ATTEMPTS_LARGE : MAX_ATTEMPTS;
+
+  logger.info('Starting document embedding', {
+    documentId,
+    contentSize,
+    isLargeFile: isLarge,
+    maxAttempts,
+  });
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const chunkCount = await attemptEmbedding(documentId, doc.content || '');
 
@@ -86,16 +107,19 @@ export async function embedDocument(
       logger.warn('Embedding attempt failed', {
         documentId,
         attempt,
-        maxAttempts: MAX_ATTEMPTS,
+        maxAttempts,
         error: lastError,
       });
 
-      if (attempt < MAX_ATTEMPTS) {
-        const delayMs = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      if (attempt < maxAttempts) {
+        // Use longer backoff delays for large files
+        const baseDelay = isLarge ? BASE_DELAY_LARGE_MS : BASE_DELAY_MS;
+        const delayMs = baseDelay * Math.pow(2, attempt - 1);
         logger.info('Retrying embedding after backoff', {
           documentId,
           attempt,
           delayMs,
+          isLargeFile: isLarge,
         });
         await sleep(delayMs);
       }
@@ -105,7 +129,7 @@ export async function embedDocument(
   // All attempts exhausted
   logger.error('Document embedding failed after all retries', {
     documentId,
-    maxAttempts: MAX_ATTEMPTS,
+    maxAttempts,
     error: lastError,
   });
   updateDocumentStatus(documentId, 'failed', { error_message: lastError });

@@ -26,6 +26,10 @@ class OllamaClient implements MastraClient {
     }
 
     try {
+      // Use AbortController for fetch timeout (30 seconds per request)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const response = await fetch(`${this.baseUrl}/api/embed`, {
         method: 'POST',
         headers: {
@@ -35,23 +39,27 @@ class OllamaClient implements MastraClient {
           model: this.model,
           input: text,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Ollama API error: ${response.statusText}`);
       }
 
-      const data = (await response.json()) as { embedding?: number[] };
+      const data = (await response.json()) as { embeddings?: number[][] };
 
-      if (!Array.isArray(data.embedding)) {
-        throw new Error('Invalid embedding response: missing embedding array');
+      if (!Array.isArray(data.embeddings)) {
+        throw new Error('Invalid embedding response: missing embeddings array');
       }
 
-      if (data.embedding.length === 0) {
+      if (data.embeddings.length === 0) {
         throw new Error('Empty embedding received from Ollama');
       }
 
-      return data.embedding;
+      // Ollama returns embeddings as an array, get the first one for single input
+      return data.embeddings[0];
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Embedding failed', {
@@ -69,6 +77,10 @@ class OllamaClient implements MastraClient {
     }
 
     try {
+      // Use AbortController for fetch timeout (45 seconds for batch - longer than single)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+
       const response = await fetch(`${this.baseUrl}/api/embed`, {
         method: 'POST',
         headers: {
@@ -78,7 +90,10 @@ class OllamaClient implements MastraClient {
           model: this.model,
           input: texts,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Ollama API error: ${response.statusText}`);
