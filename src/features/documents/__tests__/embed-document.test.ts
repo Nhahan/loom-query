@@ -15,10 +15,14 @@ vi.mock('@mastra/rag', () => ({
   MDocument: { fromText: mockFromText },
 }));
 
-const mockEmbed = vi.fn().mockResolvedValue([0.1, 0.2, 0.3]);
+const mockEmbedBatch = vi.fn().mockResolvedValue([
+  [0.1, 0.2, 0.3],
+  [0.4, 0.5, 0.6],
+  [0.7, 0.8, 0.9],
+]);
 
 vi.mock('@/lib/mastra', () => ({
-  getMastraClient: () => ({ embed: mockEmbed }),
+  getMastraClient: () => ({ embedBatch: mockEmbedBatch }),
 }));
 
 const mockAdd = vi.fn().mockResolvedValue(undefined);
@@ -67,7 +71,11 @@ describe('embedDocument', () => {
     vi.clearAllMocks();
     mockGetDocument.mockReturnValue(testDoc);
     mockChunkFn.mockResolvedValue(mockChunks);
-    mockEmbed.mockResolvedValue([0.1, 0.2, 0.3]);
+    mockEmbedBatch.mockResolvedValue([
+      [0.1, 0.2, 0.3],
+      [0.4, 0.5, 0.6],
+      [0.7, 0.8, 0.9],
+    ]);
     mockAdd.mockResolvedValue(undefined);
     mockGetOrCreateCollection.mockResolvedValue({ add: mockAdd });
   });
@@ -91,11 +99,9 @@ describe('embedDocument', () => {
       overlap: 50,
     });
 
-    // Verify embed called for each chunk
-    expect(mockEmbed).toHaveBeenCalledTimes(3);
-    expect(mockEmbed).toHaveBeenCalledWith('chunk-0');
-    expect(mockEmbed).toHaveBeenCalledWith('chunk-1');
-    expect(mockEmbed).toHaveBeenCalledWith('chunk-2');
+    // Verify embedBatch called with all chunk texts (single batch request)
+    expect(mockEmbedBatch).toHaveBeenCalledTimes(1);
+    expect(mockEmbedBatch).toHaveBeenCalledWith(['chunk-0', 'chunk-1', 'chunk-2']);
 
     // Verify ChromaDB collection created/retrieved
     expect(mockGetOrCreateCollection).toHaveBeenCalledWith({
@@ -112,8 +118,8 @@ describe('embedDocument', () => {
       documents: ['chunk-0', 'chunk-1', 'chunk-2'],
       embeddings: [
         [0.1, 0.2, 0.3],
-        [0.1, 0.2, 0.3],
-        [0.1, 0.2, 0.3],
+        [0.4, 0.5, 0.6],
+        [0.7, 0.8, 0.9],
       ],
       metadatas: [
         { document_id: testDocId, chunk_index: 0 },
@@ -164,35 +170,41 @@ describe('embedDocument', () => {
     });
   });
 
-  it('sets status to failed and returns error when chunking throws', async () => {
+  it('throws when chunking fails (letting BullMQ handle retry)', async () => {
     mockChunkFn.mockRejectedValue(new Error('Chunking failed'));
 
     const { embedDocument } = await import(
       '@/features/documents/actions/embed-document'
     );
 
-    const result = await embedDocument(testDocId);
+    await expect(embedDocument(testDocId)).rejects.toThrow('Chunking failed');
 
-    expect(result).toEqual({
-      success: false,
-      error: 'Chunking failed',
-    });
-    expect(mockUpdateDocumentStatus).toHaveBeenCalledWith(testDocId, 'failed', { error_message: 'Chunking failed' });
+    // Status should be set to 'processing' but NOT 'failed' (let BullMQ retry)
+    expect(mockUpdateDocumentStatus).toHaveBeenCalledWith(testDocId, 'processing');
+    // Should NOT call updateDocumentStatus with 'failed' (Worker failed event handler does this)
+    expect(mockUpdateDocumentStatus).not.toHaveBeenCalledWith(
+      testDocId,
+      'failed',
+      expect.any(Object)
+    );
   });
 
-  it('sets status to failed and returns error when embedding throws', async () => {
-    mockEmbed.mockRejectedValue(new Error('Embedding service down'));
+  it('throws when embedding fails (letting BullMQ handle retry)', async () => {
+    mockEmbedBatch.mockRejectedValue(new Error('Embedding service down'));
 
     const { embedDocument } = await import(
       '@/features/documents/actions/embed-document'
     );
 
-    const result = await embedDocument(testDocId);
+    await expect(embedDocument(testDocId)).rejects.toThrow('Embedding service down');
 
-    expect(result).toEqual({
-      success: false,
-      error: 'Embedding service down',
-    });
-    expect(mockUpdateDocumentStatus).toHaveBeenCalledWith(testDocId, 'failed', { error_message: 'Embedding service down' });
+    // Status should be set to 'processing' but NOT 'failed' (let BullMQ retry)
+    expect(mockUpdateDocumentStatus).toHaveBeenCalledWith(testDocId, 'processing');
+    // Should NOT call updateDocumentStatus with 'failed' (Worker failed event handler does this)
+    expect(mockUpdateDocumentStatus).not.toHaveBeenCalledWith(
+      testDocId,
+      'failed',
+      expect.any(Object)
+    );
   });
 });
