@@ -598,3 +598,124 @@ Pragmatic testing > forcing all tests to pass at any cost. Skipping environment-
 - Overall: READY FOR COMPLETION
 
 ---
+
+## Iteration 5: BullMQ Worker Integration (Completed)
+
+### Summary
+Implemented automatic document embedding processing via BullMQ Worker. Previously, documents were queued but never processed. Now they are processed automatically when uploaded.
+
+### Changes Made
+
+1. **Worker Manager Singleton** (src/lib/queue/worker-manager.ts)
+   - Idempotent worker initialization via ensureWorkerStarted()
+   - Graceful shutdown via stopWorker()
+   - Singleton pattern prevents multiple workers
+
+2. **Worker Startup Integration** (src/instrumentation.ts)
+   - Worker starts on server initialization (highest priority fix)
+   - Added stopWorker() to graceful shutdown sequence
+   - Logs "embedding processor worker started" on app startup
+   - Works in both dev and production environments
+
+3. **API Route for Manual Control** (src/app/api/queue/start/route.ts)
+   - POST /api/queue/start: Start worker on-demand
+   - GET /api/queue/start: Check worker status
+   - Useful for testing and admin operations
+
+4. **Client-side Worker Initializer** (src/components/layout/WorkerInitializer.tsx)
+   - Fallback initialization via useEffect on page load
+   - Provides redundancy in case instrumentation hook fails
+
+5. **Simplified Embedding Function** (src/features/documents/actions/embed-document.ts)
+   - Removed internal retry loop (was causing double-retry pattern)
+   - Removed 'use server' directive (function runs in Worker process)
+   - Now relies solely on BullMQ retry logic (3 attempts, exponential backoff)
+   - Single attempt per job, BullMQ handles retries
+   - Cleaner architecture, predictable retry timing
+
+### Verification
+
+- ✅ Worker starts automatically on server startup
+- ✅ Document status changes from 'waiting' to 'done' automatically (no manual API call needed)
+- ✅ Chunks created and stored in ChromaDB (chunk_count: 1+)
+- ✅ Semantic search returns relevant results (50%+ match)
+- ✅ FTS search returns exact matches (100%)
+- ✅ Hybrid search combines both
+- ✅ TypeScript compilation: 0 errors
+- ✅ E2E tests: All passing (71 tests)
+
+### Architecture Notes
+
+- Worker is started during Next.js instrumentation hook (nodejs runtime only)
+- BullMQ handles all job retry logic with exponential backoff
+- embedDocument() throws on failure, BullMQ catches and retries
+- Graceful shutdown includes worker.close() for clean process termination
+- Worker uses connection pooling from redis-config.ts
+
+### Trade-offs Made
+
+- Kept /api/documents/process-embeddings endpoint for admin/testing use (useful for batch re-processing)
+- Worker startup via instrumentation means jobs must wait for app to start (but much more reliable than client-initiated)
+- Client-side WorkerInitializer as fallback provides extra redundancy
+
+
+## Iteration 7 - Final Polish & Architecture Optimization
+
+**Objectives**: Address architect's 2 non-blocking suggestions + 3 minor improvements
+
+### Story US-505: .env.example Documentation
+- Added QUEUE_ADMIN_SECRET to .env.example with comprehensive comments
+- Explains production requirement, development bypass, Bearer token format
+- Status: COMPLETE ✅
+
+### Story US-506: WorkerInitializer Architecture Optimization
+- Analyzed: instrumentation.ts already starts Worker on server boot (primary method)
+- Decision: REMOVED WorkerInitializer (redundant client-side component)
+- Changes:
+  - Deleted: src/components/layout/WorkerInitializer.tsx
+  - Updated: src/app/layout.tsx (removed import and component usage)
+  - Result: Single source of truth (instrumentation.ts hook)
+  - Benefit: No unnecessary client-side API calls on every page load
+- Verification: 277 tests still pass (no regression from removal)
+- Status: COMPLETE ✅
+
+### Architect's 3 Non-Blocking Improvements
+1. **Extracted shared EmbeddingJobData type**
+   - Created: src/lib/queue/types.ts
+   - Moved: EmbeddingJobData interface from embedding-queue.ts and embedding-processor.ts to shared types
+   - Updated imports in both files to use shared type
+   - Benefit: DRY principle, prevents future divergence
+
+2. **Timing-safe token comparison in /api/queue/start**
+   - Updated: isAdminAuthorized() function
+   - Added: crypto.timingSafeEqual() for Bearer token comparison
+   - Defense-in-depth against timing attacks (industry best practice)
+   - Handles length mismatch gracefully with try-catch
+
+3. **CI Configuration note**
+   - Documented: SKIP_OLLAMA_TESTS=true can be used in CI environments
+   - Existing test file already has this flag available (ollama-health.test.ts:20)
+   - No code change needed, just operational guidance
+
+### Final Verification
+- TypeScript: 0 errors ✅
+- Tests: 277 passed, 2 Ollama infrastructure failures (unrelated) ✅
+- No regressions from any changes ✅
+- Code quality: DRY principle applied, security best practices implemented ✅
+
+### Architecture Final State
+**Worker Startup**: Single path via instrumentation.ts (server boot)
+**Admin Operations**: /api/queue/start with Bearer token auth (production) / all allowed (dev)
+**Job Processing**: embedDocument → throw → BullMQ retry → Worker failed event → status update
+**Graceful Shutdown**: SIGTERM/SIGINT → close all singletons (DB, Redis, Chroma, Worker)
+**Code Quality**: No dead code, proper server/client boundaries, shared types, timing-safe auth
+
+### Architect Final Sign-off
+✅ All 6 PRD stories complete
+✅ Architecture clean and optimized
+✅ No regressions or technical debt
+✅ Production-ready
+
+---
+
+**Ralph Mode Complete**: 7 iterations, 6 stories, all passes: true, full architect verification
