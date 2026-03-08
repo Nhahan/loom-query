@@ -8,20 +8,37 @@
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const [{ closeDb }, { closeRedis }, { closeChroma }] = await Promise.all([
+    const [
+      { closeDb },
+      { closeRedis },
+      { closeChroma },
+      { ensureWorkerStarted, stopWorker },
+      { logger },
+    ] = await Promise.all([
       import('@/lib/db/client'),
       import('@/lib/redis'),
       import('@/lib/chroma'),
+      import('@/lib/queue/worker-manager'),
+      import('@/lib/logger'),
     ]);
 
+    // Start the embedding processor worker
+    try {
+      await ensureWorkerStarted();
+      logger.info('embedding processor worker started');
+    } catch (error) {
+      logger.error('failed to start worker', { error });
+    }
+
     const shutdown = async (signal: string): Promise<void> => {
-      console.info(`[instrumentation] received ${signal}, shutting down...`);
+      logger.info(`received ${signal}, shutting down`, { signal });
       await Promise.allSettled([
         closeRedis(),
         Promise.resolve(closeDb()),
         Promise.resolve(closeChroma()),
+        stopWorker(),
       ]);
-      console.info('[instrumentation] singletons closed');
+      logger.info('singletons closed');
       process.exit(0);
     };
 
