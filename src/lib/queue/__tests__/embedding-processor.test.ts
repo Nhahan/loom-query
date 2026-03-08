@@ -73,6 +73,7 @@ describe('embedding-processor', () => {
       id: 'job-1',
       data: { documentId: 'doc-abc' },
       attemptsMade: 0,
+      updateProgress: vi.fn().mockResolvedValue(undefined),
     };
 
     const result = await capturedProcessor!(fakeJob);
@@ -98,6 +99,7 @@ describe('embedding-processor', () => {
       id: 'job-2',
       data: { documentId: 'doc-xyz' },
       attemptsMade: 0,
+      updateProgress: vi.fn().mockResolvedValue(undefined),
     };
 
     await expect(capturedProcessor!(fakeJob)).rejects.toThrow(
