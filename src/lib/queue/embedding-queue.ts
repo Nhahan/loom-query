@@ -1,9 +1,6 @@
 import { type Queue } from 'bullmq';
 import { createQueue } from '@/lib/queue';
-
-interface EmbeddingJobData {
-  documentId: string;
-}
+import type { EmbeddingJobData } from './types';
 
 const QUEUE_NAME = 'document-embedding';
 
